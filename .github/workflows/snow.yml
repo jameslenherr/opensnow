@@ -1,0 +1,26 @@
+name: Snow email
+
+on:
+  schedule:
+    # Cron is UTC. 12:50 UTC = 5:50 MST / 6:50 MDT
+    - cron: "50 12 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
+    - cron: "50 13 1 5 *"              # May 1
+  workflow_dispatch:  # manual run, any time of year
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90  # covers the 60 min retry wait
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python snow_email.py
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SMTP_HOST: ${{ vars.SMTP_HOST || 'smtp.gmail.com' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}

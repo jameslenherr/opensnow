@@ -1,0 +1,17 @@
+# Each location needs a Utah Snow Ensemble text-table URL.
+locations:
+  - name: Alta-Collins (CLN)
+    url: https://weather.utah.edu/text/ensgefsdslccforecast.html
+
+windows:
+  - {label: "24 h", hours: 24}
+  - {label: "5 day", hours: 120}
+  - {label: "10 day", hours: 240}
+
+percentiles: [P90]  # first one listed is used in the subject line
+
+# Flag runs older than this (hours)
+max_age_hours: 36
+
+# Wait before retrying a failed fetch; a second failure emails "not available"
+retry_delay_min: 60
