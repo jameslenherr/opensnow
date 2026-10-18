@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 import yaml
@@ -129,7 +130,10 @@ def main():
         ok2, bad = try_all([l for l in locs if l["name"] in bad], cfg)
         ok.update(ok2)
 
-    sections, subject = [], "Snow forecast"
+    today = datetime.now(ZoneInfo("America/Denver"))
+    d = today.day
+    suffix = "th" if 11 <= d <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(d % 10, "th")
+    sections, subject = [], f"Snow forecast for {today:%a %b} {d}{suffix}"
     for loc in locs:
         name = loc["name"]
         if name in ok:
@@ -138,7 +142,7 @@ def main():
             sections.append(f"{name}\nData not available (tried twice): {bad[name]}")
 
     if not ok:
-        subject = "Snow forecast: data not available"
+        subject += ": data not available"
     elif len(locs) == 1:
         med = ok[locs[0]["name"]][1]
         subject += ": " + " | ".join(f'{k} {v:.0f}"' for k, v in med.items())
