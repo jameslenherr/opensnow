@@ -23,7 +23,7 @@ Edit `config.yaml`. Each location needs a URL to a Utah Snow Ensemble text table
 - Values are cumulative snowfall from model init, read from the "Total Snowfall" table.
 - A run older than `max_age_hours` gets a warning line.
 - If a fetch fails, it waits `retry_delay_min` (60) and tries again; if that fails too, the email says the data was not available and the Actions run is marked failed.
-- Schedule is in `.github/workflows/snow.yml` (cron is UTC; 13:50 UTC = 6:50 MST).
+- Schedule is in `.github/workflows/snow.yml` (5:50am Utah time via `timezone: "America/Denver"`; GitHub handles daylight saving).
 
 ## Notes
 

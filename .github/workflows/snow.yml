@@ -2,9 +2,11 @@ name: Snow email
 
 on:
   schedule:
-    # Cron is UTC. 12:50 UTC = 5:50 MST / 6:50 MDT
-    - cron: "50 12 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
-    - cron: "50 13 1 5 *"              # May 1
+    # 5:50am Utah time year-round (GitHub handles daylight saving)
+    - cron: "50 5 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
+      timezone: "America/Denver"
+    - cron: "50 5 1 5 *"              # May 1
+      timezone: "America/Denver"
   workflow_dispatch:  # manual run, any time of year
 
 jobs:
