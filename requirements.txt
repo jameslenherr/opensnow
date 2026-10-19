@@ -1,3 +1,5 @@
 requests
 pyyaml
 beautifulsoup4
+# 2026.10.18 dropped the emSign root that weather.utah.edu chains to
+certifi==2026.7.22
