@@ -125,7 +125,7 @@ def main():
 
     ok, bad = try_all(locs, cfg)
     if bad and delay > 0:
-        print(f"Failed: {list(bad)}; retrying in {delay:.0f} min", flush=True)
+        print(f"Failed: {bad}; retrying in {delay:.0f} min", flush=True)
         time.sleep(delay * 60)
         ok2, bad = try_all([l for l in locs if l["name"] in bad], cfg)
         ok.update(ok2)
@@ -152,6 +152,8 @@ def main():
         print(subject + "\n\n" + body)
     else:
         send(subject, body)
+    if bad:
+        print(f"Failed: {bad}", flush=True)
     if not ok:
         sys.exit(1)  # flag the Actions run red
 
