@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Email Utah Snow Ensemble snowfall percentiles for configured locations."""
+import html
 import os
 import re
 import smtplib
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -18,6 +19,9 @@ UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) snow-email/1.0"}
 INIT_RE = re.compile(r"Initialized (\d{2})(\d{2}) UTC (\d{1,2} \w{3} \d{4})")
 ROW_LABELS = {"Min", "P10", "P25", "P50", "P75", "P90", "Max"}
 STEP_H = 6  # table columns are 6-h steps starting at init + 6 h
+LOCAL_TZ = ZoneInfo("America/Denver")
+CHART_DAYS = 10
+BAR_PX = 100  # height of the tallest bar
 
 
 def fetch(url):
@@ -69,6 +73,51 @@ def value_at(series, hours):
     return series[max(i, 0)]
 
 
+def daily_snow(total, init):
+    """Snow per day as [(local date, inches)], 00Z to 00Z (6 pm MDT / 5 pm MST).
+
+    Taken as differences of the cumulative series; partial first days are dropped.
+    """
+    days, prev, prev_end = [], 0.0, init
+    for i, v in enumerate(total):
+        end = init + timedelta(hours=STEP_H * (i + 1))
+        if end.hour != 0:
+            continue
+        if end - prev_end == timedelta(hours=24) and v == v and prev == prev:  # skip NaN
+            days.append((end.astimezone(LOCAL_TZ).date(), max(v - prev, 0.0)))
+        prev, prev_end = v, end
+        if len(days) == CHART_DAYS:
+            break
+    return days
+
+
+def fmt_in(v):
+    if v == 0:
+        return '0"'
+    return f'{v:.1f}"' if v < 1 else f'{v:.0f}"'
+
+
+def chart_html(days):
+    """OpenSnow-style daily bar chart as an email-safe HTML table (no SVG/JS)."""
+    if not days:
+        return "<p>Daily chart not available.</p>"
+    top = max(v for _, v in days)
+    cell = "text-align:center;padding:0 5px;font-family:Arial,sans-serif;"
+    amt, bars, dow, dom = [], [], [], []
+    for d, v in days:
+        h = 0 if top <= 0 or v <= 0 else max(round(v / top * BAR_PX), 2)
+        bar = (f'<div style="width:22px;height:{h}px;background:#3b82f6;'
+               f'margin:0 auto;border-radius:3px 3px 0 0;"></div>') if h else ""
+        amt.append(f'<td style="{cell}font-size:12px;color:#333;">{fmt_in(v)}</td>')
+        bars.append(f'<td height="{BAR_PX}" style="{cell}height:{BAR_PX}px;'
+                    f'vertical-align:bottom;border-bottom:1px solid #ccc;">{bar}</td>')
+        dow.append(f'<td style="{cell}font-size:12px;color:#666;padding-top:4px;">'
+                   f'{"MTWTFSS"[d.weekday()]}</td>')
+        dom.append(f'<td style="{cell}font-size:14px;font-weight:bold;color:#222;">{d.day}</td>')
+    rows = "".join(f"<tr>{''.join(r)}</tr>" for r in (amt, bars, dow, dom))
+    return f'<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">{rows}</table>'
+
+
 def summarize(loc, cfg):
     init, tables = parse(fetch(loc["url"]))
     snow = find_table(tables, "Total Snowfall")
@@ -90,15 +139,20 @@ def summarize(loc, cfg):
         lines.append(f"{w['label']:8}" + "".join(f"{v:>7.1f}" for v in vals))
         medians[w["label"]] = vals[0]
     lines.append("Snowfall in inches, accumulated from model init.")
-    return "\n".join(lines), medians
+
+    days = daily_snow(snow[pcts[0]], init) if init else []
+    if days:
+        lines.append(f"Daily {pcts[0]}: " + " | ".join(f"{d:%a} {d.day} {v:.1f}" for d, v in days))
+    return "\n".join(lines), medians, chart_html(days)
 
 
-def send(subject, body):
+def send(subject, body, html_body):
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = os.environ["SMTP_USER"]
     msg["To"] = os.environ["EMAIL_TO"]
     msg.set_content(body)
+    msg.add_alternative(html_body, subtype="html")
     host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
     port = int(os.environ.get("SMTP_PORT", "465"))
     with smtplib.SMTP_SSL(host, port) as s:
@@ -107,7 +161,7 @@ def send(subject, body):
 
 
 def try_all(locs, cfg):
-    """Return ({name: (text, medians)}, {name: error})."""
+    """Return ({name: (text, medians, chart html)}, {name: error})."""
     ok, bad = {}, {}
     for loc in locs:
         try:
@@ -133,13 +187,17 @@ def main():
     today = datetime.now(ZoneInfo("America/Denver"))
     d = today.day
     suffix = "th" if 11 <= d <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(d % 10, "th")
-    sections, subject = [], f"Snow forecast for {today:%a %b} {d}{suffix}"
+    sections, html_parts = [], []
+    subject = f"Snow forecast for {today:%a %b} {d}{suffix}"
     for loc in locs:
         name = loc["name"]
         if name in ok:
-            sections.append(ok[name][0])
+            text, _, chart = ok[name]
         else:
-            sections.append(f"{name}\nData not available (tried twice): {bad[name]}")
+            text, chart = f"{name}\nData not available (tried twice): {bad[name]}", ""
+        sections.append(text)
+        pre = "\n".join(l for l in text.splitlines() if not l.startswith("Daily "))
+        html_parts.append(f"<pre>{html.escape(pre)}</pre>{chart}")
 
     if not ok:
         subject += ": data not available"
@@ -147,11 +205,15 @@ def main():
         med = ok[locs[0]["name"]][1]
         subject += ": " + " | ".join(f'{k} {v:.0f}"' for k, v in med.items())
 
-    body = "\n\n".join(sections) + "\n\nSource: Utah Snow Ensemble (U of Utah, experimental)\n"
+    source = "Source: Utah Snow Ensemble (U of Utah, experimental)"
+    body = "\n\n".join(sections) + f"\n\n{source}\n"
+    html_body = "<html><body>" + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
     if os.environ.get("DRY_RUN"):
         print(subject + "\n\n" + body)
+        Path("preview.html").write_text(html_body)
+        print("HTML written to preview.html")
     else:
-        send(subject, body)
+        send(subject, body, html_body)
     if bad:
         print(f"Failed: {bad}", flush=True)
     if not ok:

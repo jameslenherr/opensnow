@@ -21,6 +21,7 @@ Edit `config.yaml`. Each location needs a URL to a Utah Snow Ensemble text table
 ## Behavior
 
 - Values are cumulative snowfall from model init, read from the "Total Snowfall" table.
+- A 10-day bar chart (HTML email) shows snow per day at the first configured percentile; bars are scaled to the biggest day. Days run 00Z to 00Z, which is 6 pm to 6 pm in MDT and 5 pm to 5 pm in MST. Plain-text clients get a "Daily" line instead.
 - A run older than `max_age_hours` gets a warning line.
 - If a fetch fails, it waits `retry_delay_min` (60) and tries again; if that fails too, the email says the data was not available and the Actions run is marked failed.
 - Schedule is in `.github/workflows/snow.yml` (5:50am Utah time via `timezone: "America/Denver"`; GitHub handles daylight saving).
