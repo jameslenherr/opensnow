@@ -2,6 +2,11 @@
 locations:
   - name: Alta-Collins (CLN)
     url: https://weather.utah.edu/text/ensgefsdslccforecast.html
+    # Optional: elevation for the daily high/low temps (Open-Meteo only).
+    # Defaults to the snow forecast's grid-point elevation. 9900 matches OpenSnow.
+    temp_elevation_ft: 9900
+    # Optional: folder of HRRR hourly text files for the 48-h table (Collins/CLN only).
+    hourly_dir: https://home.chpc.utah.edu/~steenburgh/ml/
 
 windows:
   - {label: "24 h", hours: 24}
