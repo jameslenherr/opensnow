@@ -155,70 +155,95 @@ def nws_precip_chance(lat, lon):
     return out
 
 
-def hourly_html(init_label, rows, chances):
-    """48-h hourly table, one column per hour, in a sideways-scrolling box."""
-    cell = ("text-align:center;padding:2px 3px;font-family:Arial,sans-serif;"
-            "font-size:11px;min-width:30px;white-space:nowrap;")
-    label = ("text-align:left;padding:2px 6px 2px 0;font-family:Arial,sans-serif;"
+def hourly_html(init_label, rows, chances, layout="blocks"):
+    """Hourly forecast table.
+
+    layout "blocks": stacked 12-hour tables (6a-5p, 6p-5a) that fit a phone screen.
+    layout "scroll": one wide table in a sideways-scrolling box, labels pinned on the left.
+    """
+    cell = ("text-align:center;padding:2px 1px;font-family:Arial,sans-serif;"
+            "font-size:11px;width:23px;min-width:23px;white-space:nowrap;color:#222;")
+    label = ("text-align:left;padding:2px 4px 2px 0;font-family:Arial,sans-serif;"
              "font-size:11px;color:#666;white-space:nowrap;")
-    top = max((r["snow"] for r in rows), default=0)
+    top = max((r["snow"] for r in rows), default=0)  # same bar scale in every block
+    on, off = "color:#1d4ed8;font-weight:bold;", "color:#bbb;"
 
-    def day_edge(i):  # vertical line at midnight
-        return "border-left:1px solid #ccc;" if i and rows[i]["time"].hour == 0 else ""
+    def hr(t):
+        return f'{t.hour % 12 or 12}{"a" if t.hour < 12 else "p"}'
 
-    # Day header: one cell spanning each day's hours
-    days, start = [], 0
-    for i in range(1, len(rows) + 1):
-        if i == len(rows) or rows[i]["time"].date() != rows[start]["time"].date():
-            d = rows[start]["time"]
-            days.append(f'<td colspan="{i - start}" style="{cell}text-align:left;font-weight:bold;'
-                        f'color:#222;{day_edge(start)}">{d:%a} {d.day}</td>')
-            start = i
+    def block(rs, scroll=False):
+        cols = {k: [] for k in ("hour", "bar", "snow", "water", "slr", "temp", "dir",
+                                "wind", "gust", "pop")}
+        for i, r in enumerate(rs):
+            e = "border-left:1px solid #ccc;" if i and r["time"].hour == 0 else ""  # midnight
+            td = f'<td style="{cell}{e}'
+            cols["hour"].append(f'{td}color:#666;">{hr(r["time"])}</td>')
+            bh = 0 if top <= 0 or r["snow"] <= 0 else max(round(r["snow"] / top * 30), 2)
+            bar = (f'<div style="width:14px;height:{bh}px;background:#3b82f6;margin:0 auto;'
+                   f'border-radius:2px 2px 0 0;"></div>') if bh else ""
+            cols["bar"].append(f'<td height="30" style="{cell}{e}height:30px;vertical-align:bottom;'
+                               f'border-bottom:1px solid #ccc;">{bar}</td>')
+            cols["snow"].append(f'{td}{on if r["snow"] else off}">{r["snow"]:.1f}</td>')
+            cols["water"].append(f'{td}{on if r["water"] else off}">{r["water"]:.2f}</td>')
+            # 0:1 means no precip that hour, so leave it blank
+            ratio = f'{r["slr"]}:1' if r["slr"] else ""
+            cols["slr"].append(f'{td}">{ratio}</td>')
+            cols["temp"].append(f'{td}">{r["temp"]}&deg;</td>')
+            cols["dir"].append(f'{td}">{r["wind_dir"]}</td>')
+            cols["wind"].append(f'{td}">{r["wind"]}</td>')
+            cols["gust"].append(f'{td}">{r["gust"] or ""}</td>')
+            # NWS hours are labelled by start; HRRR hours by end.
+            c = chances.get(r["time"] - timedelta(hours=1))
+            cols["pop"].append(f'{td}">{"" if c is None else c[0]}</td>')
+        names = {"hour": "", "bar": "", "snow": "Snow", "water": "H2O", "slr": "SLR",
+                 "temp": "Temp", "dir": "Dir", "wind": "Wind", "gust": "Gust", "pop": "Chance"}
+        # In scroll mode the labels stay put while the hours slide under them
+        lab = label + ("position:sticky;left:0;background:#fff;z-index:1;" if scroll else "")
+        body = "".join(f'<tr><td style="{lab}">{names[k]}</td>{"".join(v)}</tr>'
+                       for k, v in cols.items())
+        if scroll:
+            days, start = [], 0
+            for i in range(1, len(rs) + 1):
+                if i == len(rs) or rs[i]["time"].date() != rs[start]["time"].date():
+                    d = rs[start]["time"]
+                    e = "border-left:1px solid #ccc;" if start else ""
+                    days.append(f'<td colspan="{i - start}" style="{cell}{e}text-align:left;'
+                                f'font-weight:bold;padding-left:3px;">{d:%a} {d.day}</td>')
+                    start = i
+            body = f'<tr><td style="{lab}"></td>{"".join(days)}</tr>' + body
+            return ('<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;">'
+                    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
+                    f'{body}</table></div>')
+        a, b = rs[0]["time"], rs[-1]["time"]
+        end = hr(b) if a.date() == b.date() else f"{b:%a} {b.day} {hr(b)}"
+        head = (f'<p style="font-family:Arial,sans-serif;font-size:12px;font-weight:bold;'
+                f'color:#222;margin:10px 0 2px;">{a:%a} {a.day} {hr(a)} &ndash; {end}</p>')
+        return (head + '<table cellpadding="0" cellspacing="0" '
+                f'style="border-collapse:collapse;">{body}</table>')
 
-    def row(name, cells):
-        return f'<tr><td style="{label}">{name}</td>{"".join(cells)}</tr>'
-
-    hours, bars, snow, water, slr, temp, wdir, wind, gusts, pop = ([] for _ in range(10))
-    for i, r in enumerate(rows):
-        e = day_edge(i)
-        h = r["time"].hour % 12 or 12
-        hours.append(f'<td style="{cell}color:#666;{e}">{h}{"a" if r["time"].hour < 12 else "p"}</td>')
-        bh = 0 if top <= 0 or r["snow"] <= 0 else max(round(r["snow"] / top * 40), 2)
-        bar = (f'<div style="width:14px;height:{bh}px;background:#3b82f6;margin:0 auto;'
-               f'border-radius:2px 2px 0 0;"></div>') if bh else ""
-        bars.append(f'<td height="40" style="{cell}height:40px;vertical-align:bottom;'
-                    f'border-bottom:1px solid #ccc;{e}">{bar}</td>')
-        on = "color:#1d4ed8;font-weight:bold;"
-        off = "color:#bbb;"
-        snow.append(f'<td style="{cell}{on if r["snow"] else off}{e}">{r["snow"]:.1f}</td>')
-        water.append(f'<td style="{cell}{on if r["water"] else off}{e}">{r["water"]:.2f}</td>')
-        # 0:1 means no precip that hour, so leave it blank
-        ratio = f'{r["slr"]}:1' if r["slr"] else ""
-        slr.append(f'<td style="{cell}color:#222;{e}">{ratio}</td>')
-        temp.append(f'<td style="{cell}color:#222;{e}">{r["temp"]}&deg;</td>')
-        wdir.append(f'<td style="{cell}color:#222;{e}">{r["wind_dir"]}</td>')
-        wind.append(f'<td style="{cell}color:#222;{e}">{r["wind"]}</td>')
-        gusts.append(f'<td style="{cell}color:#222;{e}">{r["gust"] or ""}</td>')
-        # NWS hours are labelled by start; HRRR hours by end.
-        c = chances.get(r["time"] - timedelta(hours=1))
-        txt = "" if c is None else f"{c[0]}%"
-        pop.append(f'<td style="{cell}color:#222;{e}">{txt}</td>')
+    # Start a new block at each 6 am and 6 pm
+    blocks, cur = [], []
+    for r in rows:
+        if cur and r["time"].hour in (6, 18):
+            blocks.append(cur)
+            cur = []
+        cur.append(r)
+    if cur:
+        blocks.append(cur)
 
     tot_s, tot_w = sum(r["snow"] for r in rows), sum(r["water"] for r in rows)
-    first, last = rows[0]["time"], rows[-1]["time"]
     title = (f'<p style="font-family:Arial,sans-serif;font-size:13px;margin:12px 0 4px;">'
              f'<b>Next {len(rows)} hours at Collins</b>: {tot_s:.1f}" snow, {tot_w:.2f}" water '
              f'<span style="color:#888;">(HRRR {init_label})</span></p>')
-    table = "".join([
-        f'<tr><td></td>{"".join(days)}</tr>', row("", hours), row("", bars),
-        row("Snow in", snow), row("Water in", water), row("Snow ratio", slr), row("Temp", temp),
-        row("Wind dir", wdir), row("Wind mph", wind), row("Gust mph", gusts), row("Precip chance", pop),
-    ])
-    return (title + '<div style="overflow-x:auto;max-width:100%;">'
-            f'<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">{table}'
-            '</table></div><p style="font-family:Arial,sans-serif;font-size:11px;color:#888;'
-            'margin:4px 0 16px;">Wind from Top of Collins (ALT). Precip chance from NWS. '
-            'Scroll sideways for more hours.</p>'), tot_s, tot_w
+    note = ('<p style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin:6px 0 16px;">'
+            'Snow and H2O (water) in inches; SLR = snow-to-liquid ratio; wind and gusts in mph '
+            'from Top of Collins (ALT); chance of precip (%) from NWS.</p>')
+    if layout == "scroll":
+        tables = block(rows, scroll=True)
+        note = note.replace("from NWS.", "from NWS. Swipe sideways for more hours.")
+    else:
+        tables = "".join(block(b) for b in blocks)
+    return title + tables + note, tot_s, tot_w
 
 
 def get_hourly(loc, point):
@@ -237,7 +262,7 @@ def get_hourly(loc, point):
             chances = nws_precip_chance(point[0], point[1])
         except Exception as e:
             print(f"NWS precip chance failed: {e}", flush=True)
-    html_part, s, w = hourly_html(init_label, rows, chances)
+    html_part, s, w = hourly_html(init_label, rows, chances, loc.get("hourly_layout", "blocks"))
     return html_part, f"Next {len(rows)} h (HRRR {init_label}): {s:.1f} in snow, {w:.2f} in water"
 
 
@@ -412,7 +437,8 @@ def main():
             text, chart = f"{name}\nData not available (tried twice): {bad[name]}", ""
         sections.append(text)
         pre = "\n".join(l for l in text.splitlines() if not l.startswith(("Daily ", "Next ")))
-        html_parts.append(f"<pre>{html.escape(pre)}</pre>{chart}")
+        html_parts.append('<pre style="white-space:pre-wrap;font-size:12px;">'
+                          f"{html.escape(pre)}</pre>{chart}")
 
     if not ok:
         subject += ": data not available"
@@ -423,7 +449,8 @@ def main():
     source = ("Source: Utah Snow Ensemble (U of Utah, experimental). "
               "Hourly: U of Utah HRRR guidance (experimental) and NWS.")
     body = "\n\n".join(sections) + f"\n\n{source}\n"
-    html_body = "<html><body>" + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
+    html_body = ('<html><head><meta name="viewport" content="width=device-width, '
+                 'initial-scale=1"></head><body>') + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
     if os.environ.get("DRY_RUN"):
         print(subject + "\n\n" + body)
         Path("preview.html").write_text(html_body)

@@ -7,6 +7,8 @@ locations:
     temp_elevation_ft: 9900
     # Optional: folder of HRRR hourly text files for the 48-h table (Collins/CLN only).
     hourly_dir: https://home.chpc.utah.edu/~steenburgh/ml/
+    # Hourly layout: "scroll" (one wide table, swipe sideways) or "blocks" (stacked 12-hour tables)
+    hourly_layout: scroll
 
 windows:
   - {label: "24 h", hours: 24}
