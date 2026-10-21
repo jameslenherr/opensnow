@@ -3,6 +3,8 @@ name: Snow email
 on:
   schedule:
     # 5:50am Utah time year-round (GitHub handles daylight saving)
+    - cron: "50 5 20-31 10 *"         # Oct 20 - 31
+      timezone: "America/Denver"
     - cron: "50 5 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
       timezone: "America/Denver"
     - cron: "50 5 1 5 *"              # May 1
