@@ -218,7 +218,8 @@ def hourly_html(init_label, rows, chances, layout="blocks"):
                                 f'font-weight:bold;padding-left:3px;">{d:%a} {d.day}</td>')
                     start = i
             body = f'<tr><td style="{lab}"></td>{"".join(days)}</tr>' + body
-            return ('<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;'
+            return ('<div style="overflow-x:auto;overflow-y:hidden;padding-bottom:14px;'
+                    '-webkit-overflow-scrolling:touch;width:100%;'
                     'max-width:calc(100vw - 16px);display:block;">'
                     '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
                     f'{body}</table></div>')
