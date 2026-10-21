@@ -24,6 +24,13 @@ STEP_H = 6  # table columns are 6-h steps starting at init + 6 h
 LOCAL_TZ = ZoneInfo("America/Denver")
 CHART_DAYS = 10
 BAR_PX = 100  # height of the tallest bar
+FONT = "font-family:Arial,Helvetica,sans-serif;"
+
+
+def section(title, content):
+    """Email section with a header line."""
+    return (f'<h3 style="{FONT}font-size:16px;color:#111;margin:20px 0 8px;padding-bottom:4px;'
+            f'border-bottom:1px solid #ddd;">{title}</h3>{content}')
 
 
 def fetch(url):
@@ -381,7 +388,31 @@ def summarize(loc, cfg):
     hourly, hourly_txt = get_hourly(loc, point)
     if hourly_txt:
         lines.append(hourly_txt)
-    return "\n".join(lines), medians, hourly + chart_html(days, temps)
+
+    # HTML version: three sections
+    p = f'<p style="{FONT}font-size:13px;color:#222;margin:4px 0;">'
+    small = f'<p style="{FONT}font-size:11px;color:#888;margin:6px 0;">'
+    td = f'style="{FONT}font-size:14px;padding:2px 16px 2px 0;'
+    head = "".join(f'<td {td}color:#666;text-align:right;">{x}</td>' for x in pcts)
+    trs = f'<tr><td {td}"></td>{head}</tr>' if len(pcts) > 1 else ""
+    for w in cfg["windows"]:
+        vals = "".join(f'<td {td}text-align:right;font-weight:bold;">{value_at(snow[x], w["hours"]):.1f}"</td>'
+                       for x in pcts)
+        trs += f'<tr><td {td}color:#444;">{w["label"]}</td>{vals}</tr>'
+    summary = f"{p}Model run: {run}</p>"
+    if init and age > cfg["max_age_hours"]:
+        summary += f'{p}<b style="color:#b91c1c;">Warning: run is {age:.0f} h old (page not updated)</b></p>'
+    summary += (f'<table cellpadding="0" cellspacing="0" style="margin:6px 0;">{trs}</table>'
+                f"{small}Snowfall in inches, accumulated from model run.</p>")
+    html_out = f'<h2 style="{FONT}font-size:20px;color:#111;margin:8px 0 0;">{html.escape(loc["name"])}</h2>'
+    html_out += section("Snow Summary", summary)
+    if hourly:
+        html_out += section("Hourly Forecast", hourly)
+    ten_day = chart_html(days, temps)
+    if temp_src:
+        ten_day += f"{small}High/low temperatures (&deg;F): {temp_src}.</p>"
+    html_out += section("10 Day Forecast", ten_day)
+    return "\n".join(lines), medians, html_out
 
 
 def send(subject, body, html_body):
@@ -435,11 +466,12 @@ def main():
         if name in ok:
             text, _, chart = ok[name]
         else:
-            text, chart = f"{name}\nData not available (tried twice): {bad[name]}", ""
+            text = f"{name}\nData not available (tried twice): {bad[name]}"
+            chart = (f'<h2 style="{FONT}font-size:20px;margin:8px 0 0;">{html.escape(name)}</h2>'
+                     f'<p style="{FONT}font-size:13px;">Data not available (tried twice): '
+                     f'{html.escape(bad[name])}</p>')
         sections.append(text)
-        pre = "\n".join(l for l in text.splitlines() if not l.startswith(("Daily ", "Next ")))
-        html_parts.append('<pre style="white-space:pre-wrap;font-size:12px;">'
-                          f"{html.escape(pre)}</pre>{chart}")
+        html_parts.append(chart)
 
     if not ok:
         subject += ": data not available"
@@ -453,7 +485,9 @@ def main():
     # Viewport + Apple tag stop iPhone Mail from shrinking the email to fit wide content.
     html_body = ('<html><head><meta name="viewport" content="width=device-width, '
                  'initial-scale=1"><meta name="x-apple-disable-message-reformatting">'
-                 '</head><body style="margin:0;padding:8px;">') + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
+                 f'</head><body style="margin:0;padding:8px;{FONT}">' + "<br>".join(html_parts)
+                 + f'<p style="{FONT}font-size:11px;color:#888;margin-top:20px;">{source}</p>'
+                 "</body></html>")
     if os.environ.get("DRY_RUN"):
         print(subject + "\n\n" + body)
         Path("preview.html").write_text(html_body)
