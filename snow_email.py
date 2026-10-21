@@ -211,7 +211,8 @@ def hourly_html(init_label, rows, chances, layout="blocks"):
                                 f'font-weight:bold;padding-left:3px;">{d:%a} {d.day}</td>')
                     start = i
             body = f'<tr><td style="{lab}"></td>{"".join(days)}</tr>' + body
-            return ('<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;">'
+            return ('<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;'
+                    'max-width:calc(100vw - 16px);display:block;">'
                     '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
                     f'{body}</table></div>')
         a, b = rs[0]["time"], rs[-1]["time"]
@@ -449,8 +450,10 @@ def main():
     source = ("Source: Utah Snow Ensemble (U of Utah, experimental). "
               "Hourly: U of Utah HRRR guidance (experimental) and NWS.")
     body = "\n\n".join(sections) + f"\n\n{source}\n"
+    # Viewport + Apple tag stop iPhone Mail from shrinking the email to fit wide content.
     html_body = ('<html><head><meta name="viewport" content="width=device-width, '
-                 'initial-scale=1"></head><body>') + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
+                 'initial-scale=1"><meta name="x-apple-disable-message-reformatting">'
+                 '</head><body style="margin:0;padding:8px;">') + "<br>".join(html_parts) + f"<p>{source}</p></body></html>"
     if os.environ.get("DRY_RUN"):
         print(subject + "\n\n" + body)
         Path("preview.html").write_text(html_body)
