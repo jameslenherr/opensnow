@@ -147,17 +147,20 @@ def summarize(loc, cfg):
 
 
 def send(subject, body, html_body):
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = os.environ["SMTP_USER"]
-    msg["To"] = os.environ["EMAIL_TO"]
-    msg.set_content(body)
-    msg.add_alternative(html_body, subtype="html")
+    # One email per recipient so nobody sees the rest of the list.
+    recipients = [a.strip() for a in os.environ["EMAIL_TO"].split(",") if a.strip()]
     host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
     port = int(os.environ.get("SMTP_PORT", "465"))
     with smtplib.SMTP_SSL(host, port) as s:
         s.login(os.environ["SMTP_USER"], os.environ["SMTP_PASS"])
-        s.send_message(msg)
+        for to in recipients:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = os.environ["SMTP_USER"]
+            msg["To"] = to
+            msg.set_content(body)
+            msg.add_alternative(html_body, subtype="html")
+            s.send_message(msg)
 
 
 def try_all(locs, cfg):
