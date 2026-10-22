@@ -15,7 +15,7 @@ windows:
   - {label: "5 day", hours: 120}
   - {label: "10 day", hours: 240}
 
-percentiles: [P90]  # first one listed is used in the subject line
+percentiles: [P50]  # P50 = best guess (median of the ensemble); drives the summary, subject line and 10-day chart
 
 # Flag runs older than this (hours)
 max_age_hours: 36
