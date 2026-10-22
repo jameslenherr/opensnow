@@ -482,14 +482,14 @@ def main():
 
     source = ("Source: Utah Snow Ensemble (U of Utah, experimental). "
               "Hourly: U of Utah HRRR guidance (experimental) and NWS.")
-    invite = "Reply with a friend's email to add them to the mailing list."
+    invite = "Share the love! Reply with a friend's email to add them to the mailing list."
     body = "\n\n".join(sections) + f"\n\n{source}\n{invite}\n"
     # Viewport + Apple tag stop iPhone Mail from shrinking the email to fit wide content.
     html_body = ('<html><head><meta name="viewport" content="width=device-width, '
                  'initial-scale=1"><meta name="x-apple-disable-message-reformatting">'
                  f'</head><body style="margin:0;padding:8px;{FONT}">' + "<br>".join(html_parts)
                  + f'<p style="{FONT}font-size:11px;color:#888;margin-top:20px;">{source}</p>'
-                 + f'<p style="{FONT}font-size:11px;color:#888;">{invite}</p>'
+                 + f'<p style="{FONT}font-size:14px;color:#cc0000;">{invite}</p>'
                  "</body></html>")
     if os.environ.get("DRY_RUN"):
         print(subject + "\n\n" + body)
