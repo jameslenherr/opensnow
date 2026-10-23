@@ -2,17 +2,39 @@ name: Snow email
 
 on:
   schedule:
-    # 5:50am Utah time year-round
-    - cron: "50 5 20-31 10 *"         # Oct 20 - 31
-      timezone: "America/Denver"
-    - cron: "50 5 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
-      timezone: "America/Denver"
-    - cron: "50 5 1 5 *"              # May 1
-      timezone: "America/Denver"
+    # 4:50am Utah time year-round. Cron is UTC, so two runs are scheduled:
+    # 10:50 UTC = 4:50am MDT (daylight time), 11:50 UTC = 4:50am MST (winter).
+    # The "check" job below keeps whichever one is 4:50am in Utah today.
+    - cron: "50 10 20-31 10 *"         # Oct 20 - 31
+    - cron: "50 11 20-31 10 *"
+    - cron: "50 10 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
+    - cron: "50 11 * 11,12,1,2,3,4 *"
+    - cron: "50 10 1 5 *"              # May 1
+    - cron: "50 11 1 5 *"
   workflow_dispatch:  # manual run, any time of year
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.gate.outputs.go }}
+    steps:
+      - id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+        run: |
+          zone=$(TZ=America/Denver date +%Z)  # MDT or MST
+          if [ "$zone" = MDT ]; then want="50 10"; else want="50 11"; fi
+          if [ "$EVENT" != schedule ] || [[ "$CRON" == "$want "* ]]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping: Utah is on $zone, so the other scheduled run sends today"
+          fi
+
   send:
+    needs: check
+    if: needs.check.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90  # covers the 60 min retry wait
     steps:
