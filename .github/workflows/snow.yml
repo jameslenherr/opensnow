@@ -25,7 +25,7 @@ jobs:
           CRON: ${{ github.event.schedule }}
         run: |
           zone=$(TZ=America/Denver date +%Z)  # MDT or MST
-          if [ "$zone" = MDT ]; then want="50 10"; else want="50 11"; fi
+          if [ "$zone" = MDT ]; then want="50 6"; else want="50 7"; fi
           if [ "$EVENT" != schedule ] || [[ "$CRON" == "$want "* ]]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
           else
