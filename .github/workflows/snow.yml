@@ -2,15 +2,15 @@ name: Snow email
 
 on:
   schedule:
-    # 4:50am Utah time year-round. Cron is UTC, so two runs are scheduled:
-    # 10:50 UTC = 4:50am MDT (daylight time), 11:50 UTC = 4:50am MST (winter).
-    # The "check" job below keeps whichever one is 4:50am in Utah today.
-    - cron: "50 10 20-31 10 *"         # Oct 20 - 31
-    - cron: "50 11 20-31 10 *"
-    - cron: "50 10 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
-    - cron: "50 11 * 11,12,1,2,3,4 *"
-    - cron: "50 10 1 5 *"              # May 1
-    - cron: "50 11 1 5 *"
+    # 0:50am Utah time year-round. Cron is UTC, so two runs are scheduled:
+    # 6:50 UTC = 0:50am MDT (daylight time), 7:50 UTC = 0:50am MST (winter).
+    # The "check" job below keeps whichever one is 0:50am in Utah today.
+    - cron: "50 6 20-31 10 *"         # Oct 20 - 31
+    - cron: "50 7 20-31 10 *"
+    - cron: "50 6 * 11,12,1,2,3,4 *"  # Nov 1 - Apr 30
+    - cron: "50 7 * 11,12,1,2,3,4 *"
+    - cron: "50 6 1 5 *"              # May 1
+    - cron: "50 7 1 5 *"
   workflow_dispatch:  # manual run, any time of year
 
 jobs:
