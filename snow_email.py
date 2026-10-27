@@ -107,7 +107,7 @@ def temps_nws(lat, lon):
 HRRR_FILE_RE = re.compile(r'href="(hrrrlccforecast_(\d{10})\.txt)"')
 HRRR_ROW_RE = re.compile(
     r"^\s*\d+\s+(\d{2} [AP]M \w{3} \w{3} \d{1,2} \d{4})\s+(\S+)\s+(\S+)\s+(\S+)"
-    r"\s+(-?\d+)F\s+(-?\d+)F\s+(-?\d+)F\s+-?\d+F\s+-?\d+F\s+\S+\s+(\d+):1/\S*"
+    r"\s+(-?\d+)F\s+(-?\d+)F\s+(-?\d+)F\s+-?\d+F\s+-?\d+F\s+\S+\s+(\d+):1/\s*\S*"
     r"\s+([\d.]+)/\s*[\d.]+\s+([\d.]+)/\s*[\d.]+\s*$")
 WIND_RE = re.compile(r"([NSEW]+)(\d+)(?:G(\d+))?")
 
