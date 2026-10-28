@@ -7,7 +7,7 @@ URL = "https://weather.utah.edu/text/LAKE_EFFECT.txt"
 
 ROW_RE = re.compile(
     r"^\s*(\d+)\s+(\w{3} \d{2} [AP]M)\s+\d+ FT\s+(-?[\d.]+) C\s+(-?[\d.]+) C\s+"
-    r"(-?[\d.]+) C\s+(\d+)%\s+(\w+) (\d+) KT\s+[\d.]+ C/KM\s+(\d+)%\s*(.*)$"
+    r"(-?[\d.]+) C\s+(\d+)%\s+(\w+)\s+(\d+) KT\s+[\d.]+ C/KM\s+(\d+)%\s*(.*)$"
 )
 RUN_RE = re.compile(r"(\d{2})-(\d{2})-(\d{4}) (\d{2})Z GFS")
 AREA_NAMES = {"WEST-SLV": "West SL Valley", "SLV": "SL Valley"}
