@@ -16,6 +16,8 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
+import lake_effect
+
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) snow-email/1.0"}
 INIT_RE = re.compile(r"Initialized (\d{2})(\d{2}) UTC (\d{1,2} \w{3} \d{4})")
 POINT_RE = re.compile(r"Guidance for ([\d.]+) N ([\d.]+) W (\d+) ft")
@@ -275,6 +277,21 @@ def get_hourly(loc, point):
     return html_part, f"Next {len(rows)} h (HRRR {init_label}): {s:.1f} in snow, {w:.2f} in water"
 
 
+def get_lake_effect():
+    """Return (html, text line) for the Great Salt Lake-effect section, or ("", "") on failure."""
+    try:
+        run, init, clim, rows = lake_effect.parse(fetch(lake_effect.URL))
+    except Exception as e:
+        print(f"Lake-effect forecast failed: {e}", flush=True)
+        return "", ""
+    wins, hidden = lake_effect.select(lake_effect.windows(rows), init)
+    if wins:
+        txt = "; ".join(f"{w['start']}-{w['end']} peak {w['peak']}%" for w in wins)
+    else:
+        txt = "no signal"
+    return lake_effect.render_html(run, clim, wins, hidden, title=False), f"Lake effect ({run}): {txt}"
+
+
 def get_temps(point):
     """Return ({date: (high, low)}, source name); empty if every source fails."""
     if not point:
@@ -389,6 +406,9 @@ def summarize(loc, cfg):
     hourly, hourly_txt = get_hourly(loc, point)
     if hourly_txt:
         lines.append(hourly_txt)
+    lake, lake_txt = get_lake_effect() if loc.get("lake_effect") else ("", "")
+    if lake_txt:
+        lines.append(lake_txt)
 
     # HTML version: three sections
     p = f'<p style="{FONT}font-size:13px;color:#222;margin:4px 0;">'
@@ -409,6 +429,8 @@ def summarize(loc, cfg):
     html_out += section("Snow Summary", summary)
     if hourly:
         html_out += section("Hourly Forecast", hourly)
+    if lake:
+        html_out += section("Great Salt Lake Effect", lake)
     ten_day = chart_html(days, temps)
     if temp_src:
         ten_day += f"{small}High/low temperatures (&deg;F): {temp_src}.</p>"
@@ -481,7 +503,8 @@ def main():
         subject += ": " + " | ".join(f'{k} {v:.0f}"' for k, v in med.items())
 
     source = ("Source: Utah Snow Ensemble (U of Utah, experimental). "
-              "Hourly: U of Utah HRRR guidance (experimental) and NWS.")
+              "Hourly: U of Utah HRRR guidance (experimental) and NWS. "
+              "Lake effect: U of Utah GSLE guidance (GFS).")
     invite = "Share the love! Reply with a friend's email to add them to the mailing list."
     body = "\n\n".join(sections) + f"\n\n{source}\n{invite}\n"
     # Viewport + Apple tag stop iPhone Mail from shrinking the email to fit wide content.

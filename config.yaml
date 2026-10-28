@@ -9,6 +9,8 @@ locations:
     hourly_dir: https://home.chpc.utah.edu/~steenburgh/ml/
     # Hourly layout: "scroll" (one wide table, swipe sideways) or "blocks" (stacked 12-hour tables)
     hourly_layout: scroll
+    # Optional: add the Great Salt Lake-effect section after the hourly table
+    lake_effect: true
 
 windows:
   - {label: "24 h", hours: 24}
