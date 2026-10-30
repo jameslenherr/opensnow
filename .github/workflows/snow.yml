@@ -13,8 +13,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install -g @anthropic-ai/claude-code
       - run: python snow_email.py
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
