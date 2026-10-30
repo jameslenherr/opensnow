@@ -64,6 +64,9 @@ GREAT SALT LAKE EFFECT
 - Skip windows aimed elsewhere (not the Cottonwoods) and any "no lake-effect signal" fact.
 
 WRITE (150 to 250 words, plain text)
+- Put the whole message between <message> and </message> tags. Write nothing outside the tags:
+  no notes about the rules, no word counts, no "here's the text". The tags' contents go
+  straight to the crew as-is.
 - Bold with **double asterisks**: each day label (like **Saturday - powder in the shade:**)
   plus the 2 to 4 punchiest phrases in the whole message, like **Alta is going to be dumped
   on**. Bold nothing else, and use no other markdown (no headings, italics or # signs).
