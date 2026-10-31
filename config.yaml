@@ -18,8 +18,8 @@ locations:
 
 # Optional: AI touring outlook at the bottom of the email, written by `claude -p`.
 # Needs Claude Code installed and logged in (CLAUDE_CODE_OAUTH_TOKEN in GitHub Actions).
-# touring:
-#   model: sonnet
+touring:
+  model: sonnet
 
 windows:
   - {label: "24 h", hours: 24}
