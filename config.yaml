@@ -11,6 +11,8 @@ locations:
     hourly_layout: scroll
     # Optional: add the Great Salt Lake-effect section after the hourly table
     lake_effect: true
+    # Optional: Alta's reported 12 hr / 24 hr / storm snow next to the forecast in the summary
+    alta_report: true
     # Optional: SNOTEL station for measured snow depth and recent snowfall (1308 = Atwater, Alta)
     snotel: "1308:UT:SNTL"
 

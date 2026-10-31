@@ -17,7 +17,7 @@ HARD RULES (never break these)
 USE THE CALLS
 - The DAY-BY-DAY CALLS section already decides what kind of terrain fits each day. Follow those
   calls; do not swap in different terrain or a different best day. Your job is to make them fun
-  and clear, and to explain the why in everyday words.
+  and clear, and to explain the why in everyday words. A NOT SKIABLE day is never a day to ski.
 - Use the KEY FACTS for details (rain before the snow, wind, which slopes pick up wind drifts) and
   turn them into simple tips. Skip numbers that don't help someone decide where to ski. A few
   are great ("5 inches", "low of 24", "back in the 40s"); a wall of numbers is not.
@@ -32,13 +32,50 @@ USE THE CALLS
   to say so.
 
 SNOW ON THE GROUND
-- The measured snow facts (SNOTEL) are real observations, not forecast: use them for how much
-  snow is on the ground now and how much fell recently, e.g. "There's 14 inches on the ground
-  after 6 new overnight." A quick mention is plenty; skip it if it adds nothing.
-- Snow depth plus the forecast decides if there is enough to ski. Thin cover (under about
-  a foot) means sharks (rocks, stumps and logs hiding just under the snow), so stick to smooth,
-  grassy, low-angle slopes. Always call them sharks, and use the phrase "sharks in the water",
-  like "thin cover means sharks in the water"; never write "rocks and stumps".
+- The resort snow report and the measured snow facts (SNOTEL) are real observations, not
+  forecast: use them for how much snow is on the ground now and how much fell recently, e.g.
+  "There's 14 inches on the ground after 6 new overnight." Mid-mountain depth is what matters
+  for touring. A quick mention is plenty; skip it if it adds nothing.
+- Each day's call already checks whether there is enough snow to ski (it counts new snow as it
+  settles, so 10 inches of fresh snow on dirt is not 10 inches of base):
+  - NOT SKIABLE (under about 8 inches): say plainly that skiing isn't possible yet, and why
+    (skis would hit dirt and rocks). Suggest no terrain at all, not even "mellow" or "grassy"
+    slopes. Point people to the storm that will build the base, or suggest a hike or waxing
+    skis. Never soften this into "a little early-season skiing".
+  - THIN COVER (about 8 to 20 inches): only smooth, grassy, low-angle slopes. Thin cover means
+    sharks (rocks, stumps and logs hiding just under the snow). Always call them sharks, and use
+    the phrase "sharks in the water", like "thin cover means sharks in the water"; never write
+    "rocks and stumps".
+
+HOW THE SNOW SURFACE CHANGES (the SURFACE part of each call)
+- Each call ends with a SURFACE line for shady north-facing and sunny south-facing slopes. It
+  comes from a rule-of-thumb model of how the snow changes after a storm, based on how strong
+  the sun is for the time of year, the high and low temperatures, and the cloud cover. Use it to
+  say what the snow will feel like and where to go; do not contradict it.
+- The cheat sheet behind it, so you can explain the why in a sentence:
+  - Sun strength by time of year: LOW (late November to mid January), MODERATE (late October to
+    late November, mid January to late February), STRONG (late February to early April,
+    September to late October), VERY STRONG (April on).
+  - Cold days with fresh snow: shady slopes stay soft. After about 2 days the powder settles but
+    stays soft; after 4 or more cold days it turns loose and sugary ("recycled powder").
+  - Sunny slopes on a clear day: the sun dampens the top of the snow and it freezes into a crust
+    overnight. With LOW sun that takes a high in the upper 20s; with MODERATE sun, about 20 F;
+    with STRONG sun, even a cold day does it. Partly cloudy days need a warmer high to do the
+    same. This is why a few cold, mostly sunny days in the fall leave soft snow on shady slopes
+    and a punchy, breakable crust on sunny ones.
+  - Warm days (highs in the upper 30s or warmer, sooner with strong sun): the snow turns heavy and
+    wet by afternoon, on shady slopes too once it's warm enough. A clear night that freezes
+    (low near 30 or colder) refreezes it into a crust.
+  - Freeze-thaw (cold clear nights, warm sunny days): the first warm day only softens a crust
+    into heavy snow; after a melt-freeze cycle or two it turns to corn. Hard in the morning,
+    soft and fun by late morning, sloppy later. No overnight freeze means wet, mushy snow and a
+    wet slide concern.
+  - Overcast days: the sun barely touches the snow, so sunny slopes act like shady ones.
+  - New snow resets every slope to powder. A few inches on top of an old crust still feels the
+    crust underneath (skis punch through).
+- Use plain words for these surfaces: "punchy crust", "breakable crust", "sun crust", "recycled
+  powder", "corn", "heavy and wet", "firm and scratchy". Pick the one that matches the SURFACE
+  line.
 
 GREAT SALT LAKE EFFECT
 - If a KEY FACT gives a Great Salt Lake effect window aimed at the Cottonwoods, work it into the

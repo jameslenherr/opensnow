@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Email Utah Snow Ensemble snowfall percentiles for configured locations."""
 import html
+import json
 import os
 import re
 import smtplib
@@ -342,6 +343,38 @@ def get_lake_effect():
     return lake_effect.render_html(run, clim, wins, hidden, title=False), f"Lake effect ({run}): {txt}"
 
 
+ALTA_URL = "https://www.alta.com/weather"
+ALTA_FIELDS = [("12 hr", "last12"), ("24 hr", "last24"), ("Storm", "storm_total")]
+
+
+def get_alta_report():
+    """Alta's report as ([(label, inches)], base depth in inches, 'as of' time), or None on failure.
+
+    The page embeds its snow report as JSON in `window.Alta = {...}`.
+    Alta's "base depth" is measured mid-mountain at the Collins study plot.
+    """
+    try:
+        page = fetch(ALTA_URL)
+        start = page.index("window.Alta = ") + len("window.Alta = ")
+        c = json.JSONDecoder().raw_decode(page[start:])[0]["conditions"]
+        return ([(label, float(c[key])) for label, key in ALTA_FIELDS],
+                float(c["base_depth"]), c.get("last_updated"))
+    except Exception as e:
+        print(f"Alta snow report failed: {e}", flush=True)
+        return None
+
+
+def get_snotel_depth(station):
+    """Latest SNOTEL snow depth as (inches, local time), or None on failure."""
+    try:
+        import touring_prompt
+        have = [o for o in touring_prompt.snotel_obs(station) if o["depth"] is not None]
+        return (have[-1]["depth"], have[-1]["time"]) if have else None
+    except Exception as e:
+        print(f"SNOTEL snow depth failed: {e}", flush=True)
+        return None
+
+
 def get_temps(point):
     """Return ({date: (high, low)}, source name); empty if every source fails."""
     if not point:
@@ -441,6 +474,20 @@ def summarize(loc, cfg):
         lines.append(f"{w['label']:8}" + "".join(f"{v:>7.1f}" for v in vals))
         medians[w["label"]] = vals[0]
     lines.append("Snowfall in inches, accumulated from model init.")
+    alta = get_alta_report() if loc.get("alta_report") else None
+    if alta:
+        when = f" (as of {alta[2]})" if alta[2] else ""
+        lines.append(f"Alta reported{when}: " + " | ".join(f'{k} {v:.1f}"' for k, v in alta[0]))
+    snotel = get_snotel_depth(loc["snotel"]) if loc.get("snotel") else None
+    # Snow depth: Alta's report is mid-mountain (Collins), Atwater SNOTEL is near the base
+    depths = []
+    if alta:
+        depths.append(("Mid mountain", alta[1]))
+    if snotel:
+        depths.append(("Base", snotel[0]))
+    if depths:
+        lines.append("Snow depth: " + " | ".join(f'{k} {v:.0f}"' for k, v in depths)
+                     + (" (base: Atwater SNOTEL)" if snotel else ""))
 
     days = daily_snow(snow[pcts[0]], init) if init else []
     if point and loc.get("temp_elevation_ft"):
@@ -473,8 +520,40 @@ def summarize(loc, cfg):
     summary = f"{p}Model run: {run}</p>"
     if init and age > cfg["max_age_hours"]:
         summary += f'{p}<b style="color:#b91c1c;">Warning: run is {age:.0f} h old (page not updated)</b></p>'
-    summary += (f'<table cellpadding="0" cellspacing="0" style="margin:6px 0;">{trs}</table>'
+    forecast = (f'<table cellpadding="0" cellspacing="0" style="margin:6px 0;">{trs}</table>'
                 f"{small}Snowfall in inches, accumulated from model run.</p>")
+    label = f'<p style="{FONT}font-size:12px;color:#666;font-weight:bold;margin:4px 0 0;">'
+
+    def column(title, rows, note, fmt):
+        trs = "".join(f'<tr><td {td}color:#444;">{k}</td>'
+                      f'<td {td}text-align:right;font-weight:bold;">{fmt(v)}"</td></tr>'
+                      for k, v in rows)
+        return (f'{label}{title}</p>'
+                f'<table cellpadding="0" cellspacing="0" style="margin:6px 0;">{trs}</table>'
+                f"{small}{note}</p>")
+
+    # Columns left to right: reported snow, forecast, snow depth
+    cols = []
+    if alta:
+        when = f", as of {html.escape(alta[2])}" if alta[2] else ""
+        cols.append(column("Reported", alta[0], f"Alta snow report{when}.", lambda v: f"{v:.1f}"))
+    cols.append(f"{label}Forecast</p>{forecast}")
+    if depths:
+        notes = []
+        if alta:
+            notes.append("Mid: Alta report")
+        if snotel:
+            notes.append(f"Base: Atwater SNOTEL, {html.escape(snotel[1].strftime('%-I %p').lower())}")
+        cols.append(column("Snow Depth", depths, ". ".join(notes) + ".", lambda v: f"{v:.0f}"))
+    if len(cols) > 1:
+        # Side by side via an outer table (email clients don't reliably support flex/grid)
+        cell = 'valign="top" style="vertical-align:top;padding-right:{}px;"'
+        summary += ('<table cellpadding="0" cellspacing="0"><tr>'
+                    + "".join(f'<td {cell.format(0 if i == len(cols) - 1 else 20)}>{c}</td>'
+                              for i, c in enumerate(cols))
+                    + "</tr></table>")
+    else:
+        summary += forecast
     html_out = f'<h2 style="{FONT}font-size:20px;color:#111;margin:8px 0 0;">{html.escape(loc["name"])}</h2>'
     html_out += section("Snow Summary", summary)
     if hourly:
@@ -562,7 +641,9 @@ def main():
 
     source = ("Sources: Utah Snow Ensemble (U of Utah, experimental). "
               "Hourly: U of Utah HRRR guidance (experimental) and NWS. "
-              "Lake effect: U of Utah GSLE guidance (GFS).")
+              "Lake effect: U of Utah GSLE guidance (GFS). "
+              "Reported snow: Alta Ski Area snow report. "
+              "Base snow depth: NRCS Atwater SNOTEL.")
     invite = "Share the love! Reply with a friend's email to add them to the mailing list."
     body = "\n\n".join(sections) + f"\n\n{source}\n{invite}\n"
     # Viewport + Apple tag stop iPhone Mail from shrinking the email to fit wide content.

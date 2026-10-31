@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 import snow_email as se
+import snow_surface
 
 HERE = Path(__file__).parent
 STATION_FT = 9662  # Collins (CLN)
@@ -73,69 +74,98 @@ def sky_daily(lat, lon, elev_ft):
             if c is not None}
 
 
-def day_calls(now, days, temps, sky, depth=None):
+# Snow depth (inches, settled) needed to ski. Below NOT_SKIABLE_IN skis hit dirt and rocks
+# everywhere; below THIN_IN only smooth, grassy, low-angle slopes work.
+NOT_SKIABLE_IN = 8
+THIN_IN = 20
+SETTLE = 0.6  # new snow settles to roughly 60% of its fresh depth within a couple of days
+
+
+def day_calls(now, days, temps, sky, depth=None, recent_snow=False):
     """Pick the kind of terrain for each day with simple rules, so the model only writes it up.
 
-    Returns lines like 'Sat Oct 24: POWDER DAY - ...'.
+    depth: snow on the ground now (inches), mid-mountain if known.
+    recent_snow: True if snow fell in the last few days (old surface starts as powder, not crust).
+    Returns lines like 'Sat Oct 24: POWDER DAY - ... SURFACE: ...'.
     """
     p50 = days.get("P50", {})
-    early = now.month == 10 or (now.month == 11 and now.day <= 20)
-    # Start from the measured snow depth (SNOTEL) when we have it
-    out, on_ground, freeze_thaw, since_storm = [], float(depth or 0), 0, 99
-    for d in sorted(p50):
+    order = sorted(p50)
+    surf = snow_surface.evolve(
+        [(d, p50[d], *temps.get(d, (None, None)), sky.get(d, (None, None))[0]) for d in order],
+        start="settled" if recent_snow else "crust")
+    out, on_ground, since_storm = [], float(depth or 0), 99
+    for d in order:
         new = p50[d]
-        on_ground += new
         hi, lo = temps.get(d, (None, None))
-        cloud, sun = sky.get(d, (None, None))
-        if new >= 2:
-            since_storm = 0
-        else:
-            since_storm += 1
-        sunny = cloud is not None and cloud < 50
+        cloud = sky.get(d, (None, None))[0]
+        on_ground += SETTLE * new
+        if hi is not None and hi >= 40 and on_ground < THIN_IN:
+            on_ground = max(on_ground - 1.5, 0)  # thin snow melts fast on warm days
+        since_storm = 0 if new >= 2 else since_storm + 1
         stormy = new >= 2 or (cloud is not None and cloud >= 75)
-        refreeze = lo is not None and lo <= 30
-        thaw = hi is not None and hi >= 38
-        freeze_thaw = freeze_thaw + 1 if (sunny and refreeze and thaw and new < 1) else 0
+        s = surf[d]
+        shady, sunny = s["shady"], s["sunny"]
 
         sky_txt = f"{cloud:.0f}% cloud cover" if cloud is not None else "cloud cover n/a"
         t_txt = f"high {hi:.0f} F / low {lo:.0f} F" if hi is not None else "temps n/a"
-        info = f"({new:.1f} in new snow, {t_txt}, {sky_txt})"
+        info = (f"({new:.1f} in new snow, about {on_ground:.0f} in on the ground, {t_txt}, "
+                f"{sky_txt}, {s['sun'].lower()} sun for the time of year)")
 
-        if early and on_ground < 3:
-            call = "NOT MUCH TO SKI YET - too little snow on the ground; hike, wax skis, or wait."
+        if on_ground < NOT_SKIABLE_IN:
+            call = (f"NOT SKIABLE - only about {on_ground:.0f} in on the ground, so skis would hit "
+                    "dirt and rocks everywhere. Do not suggest any terrain. "
+                    + ("this snow is building the base. " if new >= 2 else "")
+                    + "Hike, wax skis, or wait for more snow.")
         elif stormy and new >= 2:
             call = ("STORM DAY - snowing with flat light; ski low-angle trees where you can see, "
                     "stay out of big open terrain.")
         elif stormy:
             call = ("GRAY DAY - cloudy and flat light; trees and low-angle glades give the best "
                     "visibility.")
-        elif since_storm == 1 and sunny:
-            call = ("POWDER DAY - fresh snow and sunshine; shady north-facing low-angle slopes and "
-                    "trees keep the snow light and dry; sunny slopes turn heavy by early afternoon.")
-        elif freeze_thaw >= 2 and on_ground >= 12 and not early:
+        elif sunny == "corn" and on_ground >= THIN_IN:
             call = ("CORN DAY - sunny freeze-thaw; ski open sunny slopes as they soften: east-facing "
                     "about 9-11 am, south-facing about 10 am-noon, west-facing about noon-2 pm. "
                     "Move off them once you sink past your boot tops.")
-        elif sunny and thaw:
-            call = ("SUNNY AND MILD - sunny slopes turn heavy and sticky by afternoon (not real corn "
-                    "yet" + (" with this thin early-season snow" if early else "") + "); ski shady "
-                    "north-facing slopes in the morning for the softest snow.")
-        elif sunny:
-            call = ("SUNNY AND COLD - snow stays dry; shady slopes hold the best snow, sunny slopes "
-                    "may have a crust.")
+        elif shady in snow_surface.POWDER and since_storm == 1:
+            call = ("POWDER DAY - fresh snow and sunshine; shady north-facing low-angle slopes and "
+                    "trees hold the best snow.")
+        elif shady in snow_surface.POWDER and snow_surface.SCORE[shady] > snow_surface.SCORE[sunny]:
+            call = ("SHADY SLOPES - the soft snow is hiding on shady north-facing slopes; "
+                    "skip the sunny slopes.")
+        elif max(snow_surface.SCORE[shady], snow_surface.SCORE[sunny]) <= 1:
+            call = ("CRUSTY - no soft snow on any aspect; a fitness tour or rest day. Wait for the "
+                    "next storm to reset the surface.")
         else:
-            call = "MIXED - partly cloudy; trees and shady slopes are the safe bet for good snow."
+            best = "shady north-facing" if snow_surface.SCORE[shady] >= snow_surface.SCORE[sunny] \
+                else "sunny south-facing"
+            call = f"MIXED - the best snow is on {best} slopes."
+        if NOT_SKIABLE_IN <= on_ground < THIN_IN:
+            call += (" THIN COVER: only smooth, grassy, low-angle slopes; sharks in the water "
+                     "everywhere else.")
+        if on_ground >= NOT_SKIABLE_IN:
+            call += (f" SURFACE: shady north-facing slopes: {snow_surface.describe(s, 'shady')}; "
+                     f"sunny south-facing slopes: {snow_surface.describe(s, 'sunny')}.")
         out.append(f"{d:%a %b} {d.day}: {call} {info}")
     return out
 
 
-def key_facts(now, days, temps, rows, depth=None):
+def key_facts(now, days, temps, rows, depth=None, base=None):
     """Pre-computed facts so the model doesn't have to derive them."""
     f = []
     early = now.month in (10, 11) and (now.month == 10 or now.day <= 20)
+    sun = snow_surface.sun_class(now.date())
+    f.append(f"Time of year: {sun.lower()} sun. " + {
+        "LOW": "Midwinter sun barely touches shady slopes, and sunny slopes only soften on warm days.",
+        "MODERATE": "The sun is low but still bakes sunny slopes on clear days, so they crust up "
+                    "while shady slopes stay soft.",
+        "STRONG": "The sun works sunny slopes hard on any clear day: crusts, then corn once the "
+                  "nights refreeze.",
+        "VERY STRONG": "Spring sun softens almost every aspect; timing matters more than aspect.",
+    }[sun])
     if depth is not None:
+        b = f" ({base:.0f} in near the base)" if base is not None and base != depth else ""
         f.append(f"Season: {'early season' if early else 'winter'}. Snow on the ground right now: "
-                 f"{depth:.0f} in measured at Alta (see the measured snow facts). Snowpack structure "
+                 f"about {depth:.0f} in mid-mountain{b}. Snowpack structure "
                  "(weak layers) is not in the data (unknown).")
     elif early:
         f.append("Season: early season. Before this storm the ground is likely bare or nearly bare, "
@@ -382,7 +412,18 @@ def forecast_data(loc):
             obs_facts, depth = snotel_facts(snotel_obs(loc["snotel"]))
         except Exception as e:
             obs_facts = [f"Measured snow at Alta (SNOTEL): not available ({e})."]
-    facts += [f"- {x}" for x in key_facts(now, days, temps, rows, depth)]
+    # Alta's report is mid-mountain, where most touring happens; the measured depth is near the base
+    alta = se.get_alta_report() if loc.get("alta_report") else None
+    base = depth
+    if alta:
+        (_, last12), (_, last24), (_, storm) = alta[0]
+        depth = alta[1]
+        obs_facts.insert(0, f"Resort snow report (as of {alta[2] or 'today'}): {alta[1]:.0f} in on "
+                         f"the ground mid-mountain; new snow last 12 hours {last12:.0f} in, last 24 "
+                         f"hours {last24:.0f} in, storm total {storm:.0f} in. The measured snow "
+                         "depth below is near the base, lower down, so it usually reads less.")
+    recent_snow = bool(alta and (alta[0][1][1] >= 2 or alta[0][2][1] >= 2))
+    facts += [f"- {x}" for x in key_facts(now, days, temps, rows, depth, base)]
     facts += [f"- {x}" for x in obs_facts]
     if loc.get("lake_effect"):
         try:
@@ -396,7 +437,7 @@ def forecast_data(loc):
         except Exception as e:
             facts.append(f"- Cloud cover not available ({e}).")
     calls = ["DAY-BY-DAY CALLS (pre-computed; use these for where to ski each day):"]
-    calls += [f"- {x}" for x in day_calls(now, days, temps, sky, depth)]
+    calls += [f"- {x}" for x in day_calls(now, days, temps, sky, depth, recent_snow)]
     return "\n".join(lines[:3] + calls + [""] + facts + [""] + lines[3:])
 
 
